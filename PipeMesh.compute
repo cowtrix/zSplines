@@ -1,0 +1,99 @@
+#pragma kernel CSMain
+
+// Output buffers for vertices, normals, uvs, and triangle indices
+
+struct Point
+{
+    float3 Position;
+    float3 Normal;
+    float3 Up;
+    
+};
+
+RWStructuredBuffer<float3> vertices;
+RWStructuredBuffer<float3> normals;
+RWStructuredBuffer<float2> uvs;
+RWStructuredBuffer<int> triangles;
+
+// Number of sides for the cylindrical mesh
+uint numSides;
+
+// Number of points in the line
+uint numPoints;
+
+// Input buffer of points defining the line
+StructuredBuffer<float3> positionsIn;
+StructuredBuffer<float3> normalsIn;
+StructuredBuffer<float3> upsIn;
+StructuredBuffer<float> radiusIn;
+
+[numthreads(1, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    uint pointIndex = id.x;
+    
+    // Ensure we do not go beyond the number of points
+    if (pointIndex >= numPoints - 1)
+        return;
+
+    // Get the current and next points
+    float3 position = positionsIn[pointIndex];
+    float3 normal = normalsIn[pointIndex];
+    float3 up = normalize(upsIn[pointIndex]);
+    float radius = radiusIn[pointIndex];
+    
+    float3 nextPosition = positionsIn[pointIndex + 1];
+    float nextRadius = radiusIn[pointIndex + 1];
+    
+    // Calculate direction between current and next points
+    float3 direction = normalize(nextPosition - position);
+    
+    // Perpendicular vectors: use the provided up vector and calculate a tangent vector
+    float3 tangent = normalize(cross(up, direction));
+    float3 bitangent = normalize(cross(direction, tangent));
+
+    // For each side of the cylinder
+    for (uint i = 0; i < numSides; i++)
+    {
+        float angle = (float) i / numSides * 6.28318530718; // 2 * PI
+        float3 offset = cos(angle) * tangent + sin(angle) * bitangent;
+        
+        // Interpolate between the current radius and the next radius
+        float3 startVertexPos = position + offset * radius;
+        float3 startNormalDir = normalize(offset);
+        
+        float3 endVertexPos = nextPosition + offset * nextRadius;
+        float3 endNormalDir = normalize(offset);
+
+        // Assign vertex position and normal
+        vertices[pointIndex * numSides + i] = startVertexPos;
+        normals[pointIndex * numSides + i] = startNormalDir;
+        
+        // UV mapping: u wraps around the cylinder, v is the length along the cylinder
+        float u = (float) i / (numSides - 1);
+        float v = (float) pointIndex / (numPoints - 1);
+        uvs[pointIndex * numSides + i] = float2(u, v);
+    }
+
+    // Now generate triangles to connect vertices between the two rings
+    for (uint x = 0; x < numSides; x++)
+    {
+        // Current and next vertex indices on the current ring
+        uint currentRingStart = pointIndex * numSides;
+        uint nextRingStart = (pointIndex + 1) * numSides;
+
+        uint nextI = (x + 1) % numSides;
+
+        // First triangle: (current+numSides, current, next)
+        uint triIndex1 = (pointIndex * numSides + x) * 6;
+        triangles[triIndex1 + 0] = nextRingStart + x;
+        triangles[triIndex1 + 1] = currentRingStart + x;
+        triangles[triIndex1 + 2] = currentRingStart + nextI;
+
+        // Second triangle: (next+numSides, next, current+numSides)
+        uint triIndex2 = triIndex1 + 3;
+        triangles[triIndex2 + 0] = nextRingStart + nextI;
+        triangles[triIndex2 + 1] = currentRingStart + nextI;
+        triangles[triIndex2 + 2] = nextRingStart + x;
+    }
+}
