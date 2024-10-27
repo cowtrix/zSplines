@@ -135,12 +135,12 @@ public class Spline
             {
                 // We know both neighbours aren't null here
                 var lastNode = Nodes[i - 1];
-                var nextNode = Nodes[i - 1];
+                var nextNode = Nodes[i + 1];
                 var tangent = (((lastNode.Position - node.Position) + (nextNode.Position - node.Position)) / 2f).normalized;
-                node.LeftControl = tangent.normalized * node.LeftControl.magnitude;
-                node.RightControl = -tangent.normalized * node.RightControl.magnitude;
-                //node.LeftControl = Vector3.Cross(tangent.normalized, node.UpVector) * node.LeftControl.magnitude;
-                //node.RightControl = Vector3.Cross(-tangent.normalized, node.UpVector) * node.RightControl.magnitude;
+                //node.LeftControl = tangent.normalized * node.LeftControl.magnitude;
+                //node.RightControl = -tangent.normalized * node.RightControl.magnitude;
+                node.LeftControl = Vector3.Cross(tangent.normalized, node.UpVector) * node.LeftControl.magnitude;
+                node.RightControl = Vector3.Cross(-tangent.normalized, node.UpVector) * node.RightControl.magnitude;
             }
 
             // Check for changes and invalidate neighbours
