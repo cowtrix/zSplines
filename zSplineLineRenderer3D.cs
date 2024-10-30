@@ -3,11 +3,10 @@ using System.Linq;
 using UnityEngine;
 
 [ExecuteAlways]
-[RequireComponent(typeof(MeshRenderer), typeof(MeshFilter), typeof(zSpline))]
-public class zSplineLineRenderer3D : MonoBehaviour
+[RequireComponent(typeof(MeshRenderer), typeof(MeshFilter))]
+public class zSplineLineRenderer3D : zSplineComponent
 {
-    public Spline Spline => GetComponent<zSpline>().Data;
-    public IEnumerable<SplinePoint> Points => Spline.AllPoints;
+    public IEnumerable<SplinePoint> Points => Data.AllPoints;
 
     public int CircularResolution = 5;
     public bool Loop;
@@ -67,8 +66,7 @@ public class zSplineLineRenderer3D : MonoBehaviour
         tangent.Normalize();
     }
 
-    [ContextMenu("Rebake")]
-    public void RebakeMesh()
+    protected override void InvalidateInternal()
     {
         if (Mesh == null)
         {
